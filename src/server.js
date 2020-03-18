@@ -51,6 +51,10 @@ function configureRoutes() {
         connectExporter(res);
     });
 
+    app.post('/accounts/:email/machine', (req,res) => {
+        getMachineId(res);
+    })
+
 }
 
 function insertAccounts(req, res) {
@@ -134,4 +138,32 @@ function configureMetrics() {
 function connectExporter(res) {
     res.set('Content-Type', PrometheusClient.register.contentType);
     res.send(PrometheusClient.register.metrics());
+}
+
+function getMachineId(res) {
+
+    const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
+    mongoClient.connect(function(error) {
+        if (error) {
+            res.status(500).send({message: 'Error creating id.'});
+            throw error;
+        }
+
+        const dbMongo = mongoClient.db(MONGO_TABLE);
+
+        dbMongo.collection(MONGO_COLLECTIONS).findOne({}, function(errorFind, accounts) {
+            if (errorFind) {
+                res.status(500).send({message: 'Machine not registered.'});
+                throw errorFind;
+            }
+            
+            res.setHeader("Content-Type", "text/plain")
+            res.setHeader("Location", "http://anyserver.com/account/"+accounts.email+"/machine/ABC1234");
+            res.send("ABC1234");
+            mongoClient.close();
+        });
+
+    });
+
 }

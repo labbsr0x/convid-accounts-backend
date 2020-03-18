@@ -52,7 +52,7 @@ function configureRoutes() {
     });
 
     app.post('/accounts/:email/machine', (req,res) => {
-        getMachineId(res);
+        getMachineId(req, res);
     })
 
 }
@@ -140,10 +140,19 @@ function connectExporter(res) {
     res.send(PrometheusClient.register.metrics());
 }
 
-function getMachineId(res) {
+function getMachineId(req, res) {
 
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+    const baseDomain = process.env.BASE_DOMAIN
+    const accounts = req.body
 
+    const min = Math.ceil(1000);
+    const max = Math.floor(9999);
+
+    const number = Math.floor(Math.random() * (max - min)) + min;
+
+    var machineId = makeid(3) + number.toString() 
+    
     mongoClient.connect(function(error) {
         if (error) {
             res.status(500).send({message: 'Error creating id.'});
@@ -152,18 +161,34 @@ function getMachineId(res) {
 
         const dbMongo = mongoClient.db(MONGO_TABLE);
 
-        dbMongo.collection(MONGO_COLLECTIONS).findOne({}, function(errorFind, accounts) {
+        dbMongo.collection(MONGO_COLLECTIONS).findOne({email: accounts.email}, function(errorFind, accounts) {
             if (errorFind) {
-                res.status(500).send({message: 'Machine not registered.'});
+                res.status(500).send({message: 'Error creating id.'});
                 throw errorFind;
             }
-            
-            res.setHeader("Content-Type", "text/plain")
-            res.setHeader("Location", "http://anyserver.com/account/"+accounts.email+"/machine/ABC1234");
-            res.send("ABC1234");
+
+            if (accounts) {
+                res.setHeader("Content-Type", "text/plain")
+                res.setHeader("Location", "http://"+baseDomain+"/account/"+accounts.email+"/machine/"+machineId);
+                res.send(machineId);
+            } else {
+                res.status(500).send({message: 'Machine not registered.'});
+            }
+             
             mongoClient.close();
         });
 
     });
 
 }
+
+function makeid(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+       result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+ }
+

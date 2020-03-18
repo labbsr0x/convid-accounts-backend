@@ -1,0 +1,59 @@
+version: "3"
+
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.1.0/24
+
+volumes:
+  mongo_data:
+
+services:
+  mongodb:
+    image: mongo:4.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USUARIO}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_SENHA}
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-express:
+    depends_on:
+      - mongodb
+    image: mongo-express:0.49
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_BASICAUTH_USERNAME: web
+      ME_CONFIG_BASICAUTH_PASSWORD: senha
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_USUARIO}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_SENHA}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_SITE_BASEURL: /mongo-express/
+
+  node:
+    depends_on:
+      - mongodb
+    build:
+      context: .
+    image: convid/node-accounts-backend
+    ports:
+      - "9999:9999"
+    environment:
+      URL_MONGODB: mongodb://mongodb:27017/
+      URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
+      MONGODB_USUARIO: ${MONGODB_USUARIO}
+      MONGODB_SENHA: ${MONGODB_SENHA}
+      
+  prometheus:
+    image: flaviostutz/prometheus:latest
+    ports:
+      - "9090:9090"
+    environment: 
+      - SCRAPE_INTERVAL=5s
+      - SCRAPE_TIMEOUT=5s
+      - STATIC_SCRAPE_TARGETS=node-accounts-backend@node:9999

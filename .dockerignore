@@ -1,0 +1,5 @@
+node_modules
+Readme.md
+.env
+.gitignore
+start-local.sh

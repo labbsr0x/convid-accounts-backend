@@ -48,7 +48,7 @@ services:
       URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
       MONGODB_USUARIO: ${MONGODB_USUARIO}
       MONGODB_SENHA: ${MONGODB_SENHA}
-      BASE_DOMAIN: ${BASE_DOMAIN}
+      BASE_DOMAIN: localhost:9999
       
   prometheus:
     image: flaviostutz/prometheus:latest

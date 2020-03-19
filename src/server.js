@@ -56,7 +56,7 @@ function configureRoutes() {
     });
 
     app.post('/account/:accountId/machine', (req, res) => {
-        getMachineId(req, res);
+        getMachineConnectionParams(req, res);
     })
 
 }
@@ -144,10 +144,16 @@ function connectExporter(res) {
     res.send(PrometheusClient.register.metrics());
 }
 
-function getMachineId(req, res) {
+function getMachineConnectionParams(req, res) {
 
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
     const baseDomain = process.env.BASE_DOMAIN
+
+    const sshHost = process.env.SSH_HOST
+    const sshPort = process.env.SSH_PORT
+    const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
+    const lowerPort = tunnelPortRange.split(/-/)[0]
+    const higherPort = tunnelPortRange.split(/-/)[1]
 
     const min = Math.ceil(1000);
     const max = Math.floor(9999);
@@ -172,6 +178,9 @@ function getMachineId(req, res) {
 
             let registeredMachine = { machineId }
             registeredMachine.account = account
+            const tunnelPort = Math.floor(Math.random() * 40000) + 3000
+
+            registeredMachine.tunnelPort = tunnelPort
             dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
                 if (error) {
                     res.status(500).send({ message: 'Error to insert machine.' });
@@ -180,7 +189,7 @@ function getMachineId(req, res) {
 
                 if (account) {
                     res.setHeader("Location", "http://" + baseDomain + "/account/" + account.accountId + "/machine/" + machineId);
-                    res.json({ machineId: machineId });
+                    res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, tunnelPort: tunnelPort + "" });
                 } else {
                     res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
                 }

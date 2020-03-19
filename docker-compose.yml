@@ -49,6 +49,9 @@ services:
       MONGODB_USUARIO: ${MONGODB_USUARIO}
       MONGODB_SENHA: ${MONGODB_SENHA}
       BASE_DOMAIN: localhost:9999
+      SSH_HOST: "convid.labbs.com.br"
+      SSH_PORT: "8022"
+      TUNNEL_PORT_RANGE: "3000-60000"
       
   prometheus:
     image: flaviostutz/prometheus:latest

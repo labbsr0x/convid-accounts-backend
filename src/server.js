@@ -192,10 +192,10 @@ function generateMachineConnectionParams(req, res) {
 
             registeredMachine.account = account
             registeredMachine.sshHost = sshHost
-            registeredMachine.sshPort = sshPort
+            registeredMachine.sshPort = sshPort + ""
             registeredMachine.sshUsername = sshUsername
             registeredMachine.sshPassword = sshPassword
-            registeredMachine.tunnelPort = tunnelPort
+            registeredMachine.tunnelPort = tunnelPort + ""
             dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
                 if (error) {
                     res.status(500).send({ message: 'Error to insert machine.' });

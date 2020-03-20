@@ -71,6 +71,7 @@ function configureRoutes() {
 }
 
 function insertAccount(req, res) {
+
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
 
     mongoClient.connect(function (error) {
@@ -81,6 +82,7 @@ function insertAccount(req, res) {
         const dbMongo = mongoClient.db(MONGO_TABLE);
 
         if (Array.isArray(req.body)) {
+
             dbMongo.collection(ACCOUNT_COLLECTION).insertMany(req.body, function (error, accountInserted) {
                 if (error) {
                     res.status(500).send({ message: 'Error to insert account.' });
@@ -91,14 +93,29 @@ function insertAccount(req, res) {
                 mongoClient.close();
             });
         } else {
-            dbMongo.collection(ACCOUNT_COLLECTION).insertOne(req.body, function (error, accountInserted) {
-                if (error) {
-                    res.status(500).send({ message: 'Error to insert account.' });
-                    throw error;
+
+
+            dbMongo.collection(ACCOUNT_COLLECTION).findOne({ $or: [{ accountId: req.body.accountId }, { email: req.body.email }] }, function (errorFind, account) {
+                if (errorFind) {
+                    throw errorFind;
                 }
 
-                res.status(201).send(accountInserted.ops);
-                mongoClient.close();
+                if (account != null) {
+                    res.status(409).send({ message: 'Already registered' });
+                    mongoClient.close();
+                    return;
+                } else {
+                    dbMongo.collection(ACCOUNT_COLLECTION).insertOne(req.body, function (error, accountInserted) {
+                        if (error) {
+                            res.status(500).send({ message: 'Error to insert account.' });
+                            throw error;
+                        }
+
+                        res.status(201).send(accountInserted.ops);
+                        mongoClient.close();
+                        return;
+                    });
+                }
             });
         }
 

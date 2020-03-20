@@ -163,8 +163,8 @@ function generateMachineConnectionParams(req, res) {
     const sshUsername = process.env.SSH_USERNAME
     const sshPassword = process.env.SSH_PASSWORD
     const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
-    const lowerPort = tunnelPortRange.split(/-/)[0]
-    const higherPort = tunnelPortRange.split(/-/)[1]
+    // const lowerPort = tunnelPortRange.split(/-/)[0]
+    // const higherPort = tunnelPortRange.split(/-/)[1]
 
     const min = Math.ceil(1000);
     const max = Math.floor(9999);

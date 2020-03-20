@@ -57,7 +57,11 @@ function configureRoutes() {
 
     app.post('/account/:accountId/machine', (req, res) => {
         generateMachineConnectionParams(req, res);
-    })
+    });
+
+    app.get('/account/:accountId/machine/:machineId', (req, res) => {
+        validateSSHConnection(req, res);
+    });
 
     app.get('/machine/:machineId', (req, res) => {
         getMachineConnectionParams(req, res);
@@ -71,6 +75,7 @@ function configureRoutes() {
 }
 
 function insertAccount(req, res) {
+
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
 
     mongoClient.connect(function (error) {
@@ -81,6 +86,7 @@ function insertAccount(req, res) {
         const dbMongo = mongoClient.db(MONGO_TABLE);
 
         if (Array.isArray(req.body)) {
+
             dbMongo.collection(ACCOUNT_COLLECTION).insertMany(req.body, function (error, accountInserted) {
                 if (error) {
                     res.status(500).send({ message: 'Error to insert account.' });
@@ -91,14 +97,29 @@ function insertAccount(req, res) {
                 mongoClient.close();
             });
         } else {
-            dbMongo.collection(ACCOUNT_COLLECTION).insertOne(req.body, function (error, accountInserted) {
-                if (error) {
-                    res.status(500).send({ message: 'Error to insert account.' });
-                    throw error;
+
+
+            dbMongo.collection(ACCOUNT_COLLECTION).findOne({ $or: [{ accountId: req.body.accountId }, { email: req.body.email }] }, function (errorFind, account) {
+                if (errorFind) {
+                    throw errorFind;
                 }
 
-                res.status(201).send(accountInserted.ops);
-                mongoClient.close();
+                if (account != null) {
+                    res.status(409).send({ message: 'Already registered' });
+                    mongoClient.close();
+                    return;
+                } else {
+                    dbMongo.collection(ACCOUNT_COLLECTION).insertOne(req.body, function (error, accountInserted) {
+                        if (error) {
+                            res.status(500).send({ message: 'Error to insert account.' });
+                            throw error;
+                        }
+
+                        res.status(201).send(accountInserted.ops);
+                        mongoClient.close();
+                        return;
+                    });
+                }
             });
         }
 
@@ -258,5 +279,38 @@ function makeid(length) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
+}
+
+function validateSSHConnection(req, res) {
+    const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
+    mongoClient.connect(function (error) {
+        if (error) {
+            res.status(500).send({ message: 'Validation Error' });
+            throw error;
+        }
+
+        const dbMongo = mongoClient.db(MONGO_TABLE);
+
+        dbMongo.collection(REGISTERED_MACHINE_COLLECTION).findOne({ "machineId": req.params.machineId }, function (errorFind, machine) {
+            if (errorFind) {
+                res.status(500).send({ message: 'Validation Error' });
+                throw errorFind;
+            }
+            let status = 500;
+            let message = { message: 'Validation Error' }
+            if(machine){
+                if(machine.account){
+                    if (machine.account.accountId == req.params.accountId) {
+                        status = 200;
+                        message = { message: 'Validated!' };
+                    }
+                }
+            }
+            res.status(status).send(message);
+            mongoClient.close();
+        });
+        
+    });
 }
 

@@ -4,6 +4,7 @@ const Express = require('express');
 const MongoClient = require('mongodb').MongoClient;
 const PrometheusClient = require('prom-client');
 const BodyParser = require('body-parser');
+var cors = require('cors')
 
 const PORT = 9999;
 const HOST = '0.0.0.0';
@@ -22,6 +23,9 @@ console.log(`Running on http://${HOST}:${PORT}`);
 
 
 function configureMiddlewares() {
+
+    app.use(cors())
+
     //Configure recept of JSON body.
     app.use(BodyParser.json());
     app.use(BodyParser.urlencoded({
@@ -51,13 +55,18 @@ function configureRoutes() {
         listAccount(res);
     });
 
+    app.post('/account/:accountId/machine', (req, res) => {
+        generateMachineConnectionParams(req, res);
+    })
+
+    app.get('/machine/:machineId', (req, res) => {
+        getMachineConnectionParams(req, res);
+    });
+
     app.get('/metrics', (req, res) => {
         connectExporter(res);
     });
 
-    app.post('/account/:accountId/machine', (req, res) => {
-        getMachineConnectionParams(req, res);
-    })
 
 }
 
@@ -88,7 +97,7 @@ function insertAccount(req, res) {
                     throw error;
                 }
 
-                res.status(200).send(accountInserted.ops);
+                res.status(201).send(accountInserted.ops);
                 mongoClient.close();
             });
         }
@@ -144,7 +153,7 @@ function connectExporter(res) {
     res.send(PrometheusClient.register.metrics());
 }
 
-function getMachineConnectionParams(req, res) {
+function generateMachineConnectionParams(req, res) {
 
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
     const baseDomain = process.env.BASE_DOMAIN
@@ -177,9 +186,11 @@ function getMachineConnectionParams(req, res) {
             }
 
             let registeredMachine = { machineId }
-            registeredMachine.account = account
             const tunnelPort = Math.floor(Math.random() * 40000) + 3000
 
+            registeredMachine.account = account
+            registeredMachine.sshHost = sshHost
+            registeredMachine.sshPort = sshPort
             registeredMachine.tunnelPort = tunnelPort
             dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
                 if (error) {
@@ -202,6 +213,38 @@ function getMachineConnectionParams(req, res) {
     });
 
 }
+
+function getMachineConnectionParams(req, res) {
+    const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
+    mongoClient.connect(function (error) {
+        if (error) {
+            res.status(500).send({ message: 'Error to get machineID.' });
+            throw error;
+        }
+
+        const dbMongo = mongoClient.db(MONGO_TABLE);
+
+        dbMongo.collection(REGISTERED_MACHINE_COLLECTION).findOne({ "machineId": req.params.machineId }, function (errorFind, machine) {
+            if (errorFind) {
+                throw errorFind;
+            }
+
+            if (machine) {
+                delete machine._id
+                delete machine.account._id
+                res.send(machine);
+            } else {
+                res.status(404)
+                res.send({})
+            }
+
+            mongoClient.close();
+        });
+
+    });
+}
+
 
 function makeid(length) {
     var result = '';

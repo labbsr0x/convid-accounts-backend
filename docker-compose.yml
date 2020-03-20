@@ -44,13 +44,10 @@ services:
     ports:
       - "9999:9999"
     environment:
-      URL_MONGODB: mongodb://mongodb:27017/
       URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
-      MONGODB_USUARIO: ${MONGODB_USUARIO}
-      MONGODB_SENHA: ${MONGODB_SENHA}
       BASE_DOMAIN: localhost:9999
-      SSH_HOST: "convid.labbs.com.br"
-      SSH_PORT: "8022"
+      SSH_HOST: localhost
+      SSH_PORT: "2222"
       TUNNEL_PORT_RANGE: "3000-60000"
       
   prometheus:

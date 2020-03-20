@@ -47,7 +47,9 @@ services:
       URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
       BASE_DOMAIN: localhost:9999
       SSH_HOST: localhost
-      SSH_PORT: "2222"
+      SSH_PORT: 2222
+      SSH_USERNAME: convid19
+      SSH_PASSWORD: c0nv1d19
       TUNNEL_PORT_RANGE: "3000-60000"
       
   prometheus:

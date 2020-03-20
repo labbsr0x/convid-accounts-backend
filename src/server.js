@@ -160,6 +160,8 @@ function generateMachineConnectionParams(req, res) {
 
     const sshHost = process.env.SSH_HOST
     const sshPort = process.env.SSH_PORT
+    const sshUsername = process.env.SSH_USERNAME
+    const sshPassword = process.env.SSH_PASSWORD
     const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
     const lowerPort = tunnelPortRange.split(/-/)[0]
     const higherPort = tunnelPortRange.split(/-/)[1]
@@ -191,6 +193,8 @@ function generateMachineConnectionParams(req, res) {
             registeredMachine.account = account
             registeredMachine.sshHost = sshHost
             registeredMachine.sshPort = sshPort
+            registeredMachine.sshUsername = sshUsername
+            registeredMachine.sshPassword = sshPassword
             registeredMachine.tunnelPort = tunnelPort
             dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
                 if (error) {

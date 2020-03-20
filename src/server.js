@@ -234,7 +234,7 @@ function generateMachineConnectionParams(req, res) {
             }
 
             let registeredMachine = { machineId }
-            const tunnelPort = Math.floor(Math.random() * 40000) + 3000
+            const tunnelPort = (Math.floor(Math.random() * 40000) + 3000) + ""
 
             registeredMachine.account = account
             registeredMachine.sshHost = sshHost
@@ -250,7 +250,7 @@ function generateMachineConnectionParams(req, res) {
 
                 if (account) {
                     res.setHeader("Location", "http://" + baseDomain + "/account/" + account.accountId + "/machine/" + machineId);
-                    res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, tunnelPort: tunnelPort + "" });
+                    res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, sshUsername: registeredMachine.sshUsername, sshPassword: registeredMachine.sshPassword, tunnelPort: registeredMachine.tunnelPort });
                 } else {
                     res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
                 }

@@ -4,8 +4,6 @@ export URL_MONGODB_SENHA="mongodb://usuario:senha@localhost:27017/db_convid?auth
 export BASE_DOMAIN="anyserver.com"
 export SSH_HOST="localhost"
 export SSH_PORT="2222"
-export SSH_USERNAME="convid19"
-export SSH_PASSWORD="c0nv1d19"
 
 export TUNNEL_PORT_RANGE="3000-60000"
 

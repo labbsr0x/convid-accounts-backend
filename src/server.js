@@ -63,6 +63,10 @@ function configureRoutes() {
         validateSSHConnection(req, res);
     });
 
+    app.get('/machine', (req, res) => {
+        listMachines(res);
+    });
+
     app.get('/machine/:machineId', (req, res) => {
         getMachineConnectionParams(req, res);
     });
@@ -137,12 +141,35 @@ function listAccount(res) {
 
         const dbMongo = mongoClient.db(MONGO_TABLE);
 
-        dbMongo.collection(ACCOUNT_COLLECTION).findOne({}, function (errorFind, account) {
+        dbMongo.collection(ACCOUNT_COLLECTION).find({}).toArray(function (errorFind, account) {
             if (errorFind) {
                 throw errorFind;
             }
 
             res.send(account);
+            mongoClient.close();
+        });
+
+    });
+}
+
+function listMachines(res) {
+    const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
+    mongoClient.connect(function (error) {
+        if (error) {
+            res.status(500).send({ message: 'Error connecting to mongo to list machines.' });
+            throw error;
+        }
+
+        const dbMongo = mongoClient.db(MONGO_TABLE);
+
+        dbMongo.collection(REGISTERED_MACHINE_COLLECTION).find({}).toArray(function (errorFind, machines) {
+            if (errorFind) {
+                throw errorFind;
+            }
+
+            res.send(machines);
             mongoClient.close();
         });
 
@@ -181,8 +208,6 @@ function generateMachineConnectionParams(req, res) {
 
     const sshHost = process.env.SSH_HOST
     const sshPort = process.env.SSH_PORT
-    const sshUsername = process.env.SSH_USERNAME
-    const sshPassword = process.env.SSH_PASSWORD
     const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
     // const lowerPort = tunnelPortRange.split(/-/)[0]
     // const higherPort = tunnelPortRange.split(/-/)[1]
@@ -214,8 +239,8 @@ function generateMachineConnectionParams(req, res) {
             registeredMachine.account = account
             registeredMachine.sshHost = sshHost
             registeredMachine.sshPort = sshPort + ""
-            registeredMachine.sshUsername = sshUsername
-            registeredMachine.sshPassword = sshPassword
+            registeredMachine.sshUsername = registeredMachine.machineId
+            registeredMachine.sshPassword = req.params.accountId
             registeredMachine.tunnelPort = tunnelPort + ""
             dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
                 if (error) {
@@ -286,7 +311,7 @@ function validateSSHConnection(req, res) {
 
     mongoClient.connect(function (error) {
         if (error) {
-            res.status(500).send({ message: 'Validation Error' });
+            res.status(500).send({ message: 'Error connecting to mongo to validate SSH connection' });
             throw error;
         }
 
@@ -298,9 +323,9 @@ function validateSSHConnection(req, res) {
                 throw errorFind;
             }
             let status = 500;
-            let message = { message: 'Validation Error' }
-            if(machine){
-                if(machine.account){
+            let message = { message: 'SSH Connection NOT validated' }
+            if (machine) {
+                if (machine.account) {
                     if (machine.account.accountId == req.params.accountId) {
                         status = 200;
                         message = { message: 'Validated!' };
@@ -310,7 +335,7 @@ function validateSSHConnection(req, res) {
             res.status(status).send(message);
             mongoClient.close();
         });
-        
+
     });
 }
 

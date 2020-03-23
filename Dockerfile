@@ -1,12 +1,14 @@
 FROM node:11-alpine
 
+ENV WITH_TOTP="false"
+
 # Create app directory
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
-COPY ./src/server.js .
+COPY ./src .
 
 EXPOSE 9999
 

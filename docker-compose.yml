@@ -1,11 +1,11 @@
-version: "3"
+version: "3.7"
 
-networks:
-  default:
-    ipam:
-      driver: default
-      config:
-        - subnet: 192.168.1.0/24
+# networks:
+  # default:
+    # ipam:
+    #   driver: default
+    #   config:
+    #     - subnet: 192.168.1.0/24
 
 volumes:
   mongo_data:
@@ -44,11 +44,23 @@ services:
     ports:
       - "9999:9999"
     environment:
-      URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
-      BASE_DOMAIN: localhost:9999
-      SSH_HOST: localhost
-      SSH_PORT: 2222
-      TUNNEL_PORT_RANGE: "3000-60000"
+      - URL_MONGODB_SENHA=mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
+      - BASE_DOMAIN=localhost:9999
+      - SSH_HOST=localhost
+      - SSH_PORT=2222
+      - TUNNEL_PORT_RANGE=3000-60000
+      ##JWT Confs
+      - KEY_USING_SECRET=true
+      - ISSUER_NAME=ConvidDocker
+      - EXPIRATION_TIME=1h
+      - ALGORITHM=RS512
+      - PRIVATE_KEY=rs-prv-key
+      - PUBLIC_KEY=rs-pub-key
+      ##TOTP
+      - WITH_TOTP=true
+    secrets:
+      - rs-prv-key
+      - rs-pub-key
       
   prometheus:
     image: flaviostutz/prometheus:latest
@@ -58,3 +70,9 @@ services:
       - SCRAPE_INTERVAL=5s
       - SCRAPE_TIMEOUT=5s
       - STATIC_SCRAPE_TARGETS=node-accounts-backend@node:9999
+
+secrets:
+  rs-prv-key:
+    file: ./test-rsa.key
+  rs-pub-key:
+    file: ./test-rsa.pub

@@ -75,6 +75,10 @@ function configureRoutes() {
         getMachineConnectionParams(req, res);
     });
 
+    app.post('/machine/:machineId/token', (req, res) => {
+        getMachineConnectionParamsTotp(req, res);
+    });
+
     app.get('/metrics', (req, res) => {
         connectExporter(res);
     });
@@ -344,6 +348,45 @@ function validateSSHConnection(req, res) {
 
     });
 }
+
+function getMachineConnectionParamsTotp(req, res) {
+    const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
+    mongoClient.connect(function (error) {
+        if (error) {
+            res.status(500).send({ message: 'Error connecting to mongo to validate SSH connection' });
+            throw error;
+        }
+
+        const dbMongo = mongoClient.db(MONGO_TABLE);
+
+        dbMongo.collection(REGISTERED_MACHINE_COLLECTION).findOne({ "machineId": req.params.machineId }, function (errorFind, machine) {
+            if (errorFind) {
+                res.status(500).send({ message: 'Validation Error' });
+                throw errorFind;
+            }
+
+            let status = 500;
+            let message = { message: 'Validation Error' }
+
+            if (machine) {
+                if (machine.totpSecret) {
+                    let validationResult = moduleTotp.validateTOTP(req.body.code, machine.totpSecret);
+                    // log.info("TOTP Validation Result: ", validationResult);
+                    if (validationResult) {
+                        status = 200;
+                        message = {
+                            machinePort: machine.tunnelPort, 
+                            token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                        }
+                    }
+                }
+            }
+            res.status(status).send(message);
+            mongoClient.close();
+        });
+    });
+} 
 
 function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo) {
     log.info("Insert Machine Data")

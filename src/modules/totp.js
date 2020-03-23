@@ -17,6 +17,17 @@ async function createTOTP(machineId) {
     }
 }
 
+function validateTOTP(code, secret){
+    log.debug("totp > validateTOTP");
+    log.trace("Code: ", code);
+    return speakeasy.totp.verify({ secret: secret,
+        encoding: 'base32',
+        token: code,
+        window: 2
+    });
+}
+
 module.exports = {
-    createTOTP
+    createTOTP,
+    validateTOTP,
 }

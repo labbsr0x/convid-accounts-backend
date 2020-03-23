@@ -370,17 +370,26 @@ function getMachineConnectionParamsTotp(req, res) {
             let message = { message: 'Validation Error' }
 
             if (machine) {
-                if (machine.totpSecret) {
-                    let validationResult = moduleTotp.validateTOTP(req.body.code, machine.totpSecret);
-                    // log.info("TOTP Validation Result: ", validationResult);
-                    if (validationResult) {
-                        status = 200;
-                        message = {
-                            machinePort: machine.tunnelPort, 
-                            token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                if (conf.withTOTP) {
+                    if (machine.totpSecret) {
+                        let validationResult = moduleTotp.validateTOTP(req.body.code, machine.totpSecret);
+                        // log.info("TOTP Validation Result: ", validationResult);
+                        if (validationResult) {
+                            status = 200;
+                            message = {
+                                machinePort: machine.tunnelPort, 
+                                token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                            }
                         }
                     }
+                }else{    
+                    status = 200;
+                    message = {
+                        machinePort: machine.tunnelPort, 
+                        token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                    }
                 }
+                
             }
             res.status(status).send(message);
             mongoClient.close();

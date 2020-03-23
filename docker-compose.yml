@@ -1,11 +1,11 @@
 version: "3"
 
-networks:
-  default:
-    ipam:
-      driver: default
-      config:
-        - subnet: 192.168.1.0/24
+# networks:
+  # default:
+    # ipam:
+    #   driver: default
+    #   config:
+    #     - subnet: 192.168.1.0/24
 
 volumes:
   mongo_data:
@@ -43,12 +43,19 @@ services:
     image: convid/node-accounts-backend
     ports:
       - "9999:9999"
+      - "9229:9229"
     environment:
       URL_MONGODB_SENHA: mongodb://${MONGODB_USUARIO}:${MONGODB_SENHA}@mongodb:27017/db_convid?authMechanism=DEFAULT&authSource=admin
       BASE_DOMAIN: localhost:9999
       SSH_HOST: localhost
       SSH_PORT: 2222
       TUNNEL_PORT_RANGE: "3000-60000"
+      ##JWT Confs
+      ISSUER_NAME: "ConvidDocker"
+      EXPIRATION_TIME: "1h"
+      ALGORITHM: "RS512"
+      ##TOTP
+      WITH_TOTP: "true"
       
   prometheus:
     image: flaviostutz/prometheus:latest

@@ -4,6 +4,10 @@ const Express = require('express');
 const MongoClient = require('mongodb').MongoClient;
 const PrometheusClient = require('prom-client');
 const BodyParser = require('body-parser');
+const { log } = require('./util/logging');
+const moduleJwt = require('./modules/jwt');
+const moduleTotp = require('./modules/totp');
+const conf = require('./modules/conf');
 var cors = require('cors')
 
 const PORT = 9999;
@@ -225,6 +229,7 @@ function generateMachineConnectionParams(req, res) {
             throw error;
         }
 
+        log.debug("Mongo Connected")
         const dbMongo = mongoClient.db(MONGO_TABLE);
 
         dbMongo.collection(ACCOUNT_COLLECTION).findOne({ accountId: req.params.accountId }, function (errorFind, account) {
@@ -233,31 +238,32 @@ function generateMachineConnectionParams(req, res) {
                 throw errorFind;
             }
 
+            log.debug("Account founded")
+            log.trace("accound:", JSON.stringify(account));
             let registeredMachine = { machineId }
             const tunnelPort = (Math.floor(Math.random() * 40000) + 3000) + ""
-
+            
             registeredMachine.account = account
+            
             registeredMachine.sshHost = sshHost
             registeredMachine.sshPort = sshPort + ""
             registeredMachine.sshUsername = registeredMachine.machineId
             registeredMachine.sshPassword = req.params.accountId
             registeredMachine.tunnelPort = tunnelPort + ""
-            dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
-                if (error) {
-                    res.status(500).send({ message: 'Error to insert machine.' });
-                    throw error;
-                }
 
-                if (account) {
-                    res.setHeader("Location", "http://" + baseDomain + "/account/" + account.accountId + "/machine/" + machineId);
-                    res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, sshUsername: registeredMachine.sshUsername, sshPassword: registeredMachine.sshPassword, tunnelPort: registeredMachine.tunnelPort });
-                } else {
-                    res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
-                }
-
-                mongoClient.close();
-            });
-
+            if(conf.withTOTP){
+                log.debug("Try to create totp")
+                log.trace(JSON.stringify(registeredMachine));
+                moduleTotp.createTOTP(machineId).then((totpInfo) => {
+                    log.trace(JSON.stringify(totpInfo))
+                    registeredMachine.totpSecret = totpInfo.secret.base32;
+                    insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo);
+                }).catch((err) => {
+                    log.error(err);
+                })
+            }else{
+                insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, null);
+            } 
         });
 
     });
@@ -283,6 +289,7 @@ function getMachineConnectionParams(req, res) {
             if (machine) {
                 delete machine._id
                 delete machine.account._id
+                delete machine.totpSecret
                 res.send(machine);
             } else {
                 res.status(404)
@@ -294,7 +301,6 @@ function getMachineConnectionParams(req, res) {
 
     });
 }
-
 
 function makeid(length) {
     var result = '';
@@ -339,3 +345,33 @@ function validateSSHConnection(req, res) {
     });
 }
 
+function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo) {
+    log.info("Insert Machine Data")
+    dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
+        if (error) {
+            res.status(500).send({ message: 'Error to insert machine.' });
+            throw error;
+        }
+        let urlTOTP = "";
+        if(totpInfo){
+            urlTOTP = totpInfo.urlTotp;
+        }
+
+        log.debug("Inserted data")
+        if (registeredMachine.account) {
+            res.setHeader("Location", "http://" + conf.audience + "/account/" + registeredMachine.account.accountId + "/machine/" + registeredMachine.machineId);
+            res.json({ 
+                machineId: registeredMachine.machineId,
+                sshHost: registeredMachine.sshHost,
+                sshPort: registeredMachine.sshPort,
+                totpUrl: urlTOTP,
+                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, "localhost:3389")
+            })
+            // res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, sshUsername: registeredMachine.sshUsername, sshPassword: registeredMachine.sshPassword, tunnelPort: registeredMachine.tunnelPort });
+        } else {
+            res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
+        }
+
+        mongoClient.close();
+    });
+}

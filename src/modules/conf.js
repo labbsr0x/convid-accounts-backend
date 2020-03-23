@@ -8,8 +8,6 @@ const publicKeyFile = `${process.env.KEY_USING_SECRET == "true" ? "/run/secrets/
 const withTOTP = process.env.WITH_TOTP == "true" ? true : false
 const logLevel = process.env.LOG_LEVEL || 'info';
 
-console.log("TOTP: ", withTOTP);
-
 module.exports = {
     issuer,
     audience,

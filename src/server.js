@@ -236,10 +236,6 @@ function connectExporter(res) {
 }
 
 function generateMachineConnectionParams(req, res) {
-    console.log('Entrou no Request........');
-    req.id = (new Date()).getMilliseconds();
-    console.log(req.id);
-
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
     const sshHost = process.env.SSH_HOST;
     const sshPort = process.env.SSH_PORT;
@@ -275,7 +271,7 @@ function generateMachineConnectionParams(req, res) {
             registeredMachine.sshUsername = registeredMachine.machineId;
             registeredMachine.sshPassword = req.params.accountId;
 
-            getTunnelPort(dbMongo, req).then(tunnelPort => {
+            getTunnelPort(dbMongo).then(tunnelPort => {
                 registeredMachine.tunnelPort = tunnelPort + '';
 
                 if(conf.withTOTP){
@@ -355,7 +351,7 @@ function getLastTunnelPort() {
     return parseInt(process.env.TUNNEL_PORT_RANGE.split(/-/)[1]);
 }
 
-function getTunnelPort(dbMongo, req) {
+function getTunnelPort(dbMongo) {
     return new Promise((resolve, reject) => {
         //List all machines to check the valuable tunnel port.
         dbMongo.collection(REGISTERED_MACHINE_COLLECTION).find({}, { projection: { 'tunnelPort': 1 } })
@@ -377,19 +373,6 @@ function getTunnelPort(dbMongo, req) {
             const MAX_TRY_GENERATE = 100000;
             let tryGenerate = 0;
             
-            console.log();
-            console.log('Obtendo tunnelPort.................');
-            console.log('id');
-            console.log(req.id);
-            console.log('tunnelPort');
-            console.log(tunnelPort);
-            console.log('inserts concurrentes');
-            console.log(countGeneratingTunnelPort);
-            console.log('machines in mongoDB');
-            console.log(machines);
-            console.log('tunnel ports que serao inseridos');
-            console.log(arrayTunnelPortsInserting);
-
             let validTunnelPort = false;
             while(!validTunnelPort) {
                 // Check tunnel port in mongoDB and in nodeJS concurrent requests.
@@ -416,12 +399,6 @@ function getTunnelPort(dbMongo, req) {
 
             //Keep the tunnel port to avoid duplicated insert.
             arrayTunnelPortsInserting.push(tunnelPort);
-
-            console.log('Tunnel port disponivel............');
-            console.log('tunnelPort');
-            console.log(tunnelPort);
-            console.log('tunnel ports que serao inseridos');
-            console.log(arrayTunnelPortsInserting);
 
             resolve(tunnelPort);
         });
@@ -522,20 +499,7 @@ function getMachineConnectionParamsTotp(req, res) {
 function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo) {
     log.info("Insert Machine Data")
 
-    console.log();
-    console.log('Comecar a inserir..........');
-    console.log(req.id);
-
     dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
-        console.log();
-        console.log('Callback inserir.......');
-        console.log('tunnelport inserido');
-        console.log(registeredMachine.tunnelPort);
-        console.log('inserts concurrents');
-        console.log(countGeneratingTunnelPort);
-        console.log('tunnel ports do cache do nodejs');
-        console.log(arrayTunnelPortsInserting);
-
         //Finished to insert tunnel port.
         countGeneratingTunnelPort--;
 
@@ -545,20 +509,11 @@ function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, to
             arrayTunnelPortsInserting.splice(indexTunnelPortInserted, 1);
         }
 
-        console.log('Depois de limpar..........');
-        console.log('inserts concurrents');
-        console.log(countGeneratingTunnelPort);
-        console.log('tunnel ports do cache do nodejs');
-        console.log(arrayTunnelPortsInserting);
-
         if (error) {
             console.error(error);
             res.status(500).send({ message: 'Error to insert machine.' });
             return;
         }
-
-        console.log('Inserido..........');
-        console.log(req.id);
 
         let urlTOTP = "";
         if(totpInfo){

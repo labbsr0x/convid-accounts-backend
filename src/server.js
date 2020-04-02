@@ -291,9 +291,15 @@ function getMachineConnectionParams(req, res) {
             }
 
             if (machine) {
+                if (conf.withTOTP) {
+                    machine['withTotp'] = true
+                }else{
+                    machine['withTotp'] = false
+                }
                 delete machine._id
                 delete machine.account._id
-                delete machine.totpSecret
+                delete machine.totpSecret      
+                machine['token'] = moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                 res.send(machine);
             } else {
                 res.status(404)
@@ -377,16 +383,20 @@ function getMachineConnectionParamsTotp(req, res) {
                         if (validationResult) {
                             status = 200;
                             message = {
+                                sshHost: machine.sshHost,
+                                sshPort: machine.sshPort,
                                 machinePort: machine.tunnelPort, 
-                                token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                                token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                             }
                         }
                     }
                 }else{    
                     status = 200;
                     message = {
+                        sshHost: machine.sshHost,
+                        sshPort: machine.sshPort,
                         machinePort: machine.tunnelPort, 
-                        token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                        token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                     }
                 }
                 
@@ -416,10 +426,10 @@ function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, to
                 machineId: registeredMachine.machineId,
                 sshHost: registeredMachine.sshHost,
                 sshPort: registeredMachine.sshPort,
+                tunnelPort: registeredMachine.tunnelPort,
                 totpUrl: urlTOTP,
-                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, "localhost:3389")
+                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
             })
-            // res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, sshUsername: registeredMachine.sshUsername, sshPassword: registeredMachine.sshPassword, tunnelPort: registeredMachine.tunnelPort });
         } else {
             res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
         }

@@ -428,7 +428,7 @@ function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, to
                 sshPort: registeredMachine.sshPort,
                 tunnelPort: registeredMachine.tunnelPort,
                 totpUrl: urlTOTP,
-                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
+                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, `localhost:${registeredMachine.tunnelPort}`)
             })
         } else {
             res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });

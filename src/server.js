@@ -216,6 +216,7 @@ function generateMachineConnectionParams(req, res) {
 
     const sshHost = process.env.SSH_HOST
     const sshPort = process.env.SSH_PORT
+    const sshPortInternal = process.env.SSH_PORT_INTERNAL || process.env.SSH_PORT
     const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
     // const lowerPort = tunnelPortRange.split(/-/)[0]
     // const higherPort = tunnelPortRange.split(/-/)[1]
@@ -251,6 +252,7 @@ function generateMachineConnectionParams(req, res) {
             
             registeredMachine.sshHost = sshHost
             registeredMachine.sshPort = sshPort + ""
+            registeredMachine.sshPortInternal = sshPortInternal + ""
             registeredMachine.sshUsername = registeredMachine.machineId
             registeredMachine.sshPassword = req.params.accountId
             registeredMachine.tunnelPort = tunnelPort + ""
@@ -426,6 +428,7 @@ function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, to
                 machineId: registeredMachine.machineId,
                 sshHost: registeredMachine.sshHost,
                 sshPort: registeredMachine.sshPort,
+                sshPortInternal: registeredMachine.sshPortInternal,
                 tunnelPort: registeredMachine.tunnelPort,
                 totpUrl: urlTOTP,
                 token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, `localhost:${registeredMachine.tunnelPort}`)

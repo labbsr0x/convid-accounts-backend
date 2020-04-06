@@ -48,6 +48,7 @@ services:
       - BASE_DOMAIN=localhost:9999
       - SSH_HOST=localhost
       - SSH_PORT=2222
+      - SSH_PORT_INTERNAL=22
       - TUNNEL_PORT_RANGE=3000-60000
       ##JWT Confs
       - KEY_USING_SECRET=true

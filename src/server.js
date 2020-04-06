@@ -17,8 +17,18 @@ const MONGO_TABLE = 'db_convid';
 const ACCOUNT_COLLECTION = 'account';
 const REGISTERED_MACHINE_COLLECTION = 'registered_machine';
 
+//Control to avoid inserting tunnelPort duplicated.
+let countGeneratingTunnelPort = 0;
+let arrayTunnelPortsInserting = [];
+
 const app = Express();
 const metrics = configureMetrics();
+
+configureMongoDB().catch(error => {
+    console.error('Error to configure mongoDB.');
+    console.error(error);
+});
+
 configureMiddlewares();
 configureRoutes();
 
@@ -44,6 +54,18 @@ function configureMiddlewares() {
 
         next();
     });
+}
+
+async function configureMongoDB() {
+    const mongoClient = await MongoClient.connect(process.env.URL_MONGODB_SENHA);
+
+    /**
+     * Let the attribute tunnelPort unique.
+     * https://thecodebarbarian.com/enforcing-uniqueness-with-mongodb-partial-unique-indexes.html
+     */
+    mongoClient.db(MONGO_TABLE).collection(REGISTERED_MACHINE_COLLECTION).ensureIndex(
+        { tunnelPort: 1 }, 
+        { sparse: true, unique: true });
 }
 
 function configureRoutes() {
@@ -82,7 +104,6 @@ function configureRoutes() {
     app.get('/metrics', (req, res) => {
         connectExporter(res);
     });
-
 
 }
 
@@ -154,7 +175,12 @@ function listAccount(res) {
                 throw errorFind;
             }
 
-            res.send(account);
+            if(account) {
+                res.send(account);
+            }else {
+                res.status(404).send({message: 'Accounts not found.'});
+            }
+
             mongoClient.close();
         });
 
@@ -210,8 +236,8 @@ function connectExporter(res) {
 }
 
 function generateMachineConnectionParams(req, res) {
-
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
+
     const baseDomain = process.env.BASE_DOMAIN
 
     const sshHost = process.env.SSH_HOST
@@ -221,12 +247,12 @@ function generateMachineConnectionParams(req, res) {
     // const lowerPort = tunnelPortRange.split(/-/)[0]
     // const higherPort = tunnelPortRange.split(/-/)[1]
 
+
     const min = Math.ceil(1000);
     const max = Math.floor(9999);
-
     const number = Math.floor(Math.random() * (max - min)) + min;
 
-    var machineId = makeid(3) + number.toString()
+    const machineId = makeid(3) + number.toString();
 
     mongoClient.connect(function (error) {
         if (error) {
@@ -245,35 +271,43 @@ function generateMachineConnectionParams(req, res) {
 
             log.debug("Account founded")
             log.trace("accound:", JSON.stringify(account));
-            let registeredMachine = { machineId }
-            const tunnelPort = (Math.floor(Math.random() * 40000) + 3000) + ""
-            
-            registeredMachine.account = account
-            
-            registeredMachine.sshHost = sshHost
-            registeredMachine.sshPort = sshPort + ""
+          
+            let registeredMachine = { machineId };
+            registeredMachine.account = account;
+            registeredMachine.sshHost = sshHost;
+            registeredMachine.sshPort = sshPort + "";
             registeredMachine.sshPortInternal = sshPortInternal + ""
-            registeredMachine.sshUsername = registeredMachine.machineId
-            registeredMachine.sshPassword = req.params.accountId
-            registeredMachine.tunnelPort = tunnelPort + ""
+            registeredMachine.sshUsername = registeredMachine.machineId;
+            registeredMachine.sshPassword = req.params.accountId;
 
-            if(conf.withTOTP){
-                log.debug("Try to create totp")
-                log.trace(JSON.stringify(registeredMachine));
-                moduleTotp.createTOTP(machineId).then((totpInfo) => {
-                    log.trace(JSON.stringify(totpInfo))
-                    registeredMachine.totpSecret = totpInfo.secret.base32;
-                    insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo);
-                }).catch((err) => {
-                    log.error(err);
-                })
-            }else{
-                insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, null);
-            } 
+            getTunnelPort(dbMongo).then(tunnelPort => {
+                registeredMachine.tunnelPort = tunnelPort + '';
+
+                if(conf.withTOTP){
+                    log.debug("Try to create totp");
+                    log.trace(JSON.stringify(registeredMachine));
+                    moduleTotp.createTOTP(machineId).then((totpInfo) => {
+                        log.trace(JSON.stringify(totpInfo))
+                        registeredMachine.totpSecret = totpInfo.secret.base32;
+                        insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo);
+                    }).catch((err) => {
+                        log.error(err);
+                    });
+                } else{
+                    insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, null);
+                } 
+            },
+            error => {
+                mongoClient.close();
+                console.error('Error to get the tunnelPort.');
+                console.error(error);
+                res.status(500).send({ message: 'Error to insert machine.' });
+                return;
+            });
+
         });
 
     });
-
 }
 
 function getMachineConnectionParams(req, res) {
@@ -311,6 +345,79 @@ function getMachineConnectionParams(req, res) {
             mongoClient.close();
         });
 
+    });
+}
+
+
+function generateTunnelPort() {
+    return Math.floor(Math.random() * (getLastTunnelPort() - getFirstTunnelPort()) ) + getFirstTunnelPort();
+}
+
+function getMaxTunnelPorts() {
+    // Plus 1 because the last port is included.
+    // Ex: Range 3000 to 3001, there is 2 ports and not 1.
+    return (getLastTunnelPort() - getFirstTunnelPort()) + 1;
+}
+
+function getFirstTunnelPort() {
+    return parseInt(process.env.TUNNEL_PORT_RANGE.split(/-/)[0]);
+}
+
+function getLastTunnelPort() {
+    return parseInt(process.env.TUNNEL_PORT_RANGE.split(/-/)[1]);
+}
+
+function getTunnelPort(dbMongo) {
+    return new Promise((resolve, reject) => {
+        //List all machines to check the valuable tunnel port.
+        dbMongo.collection(REGISTERED_MACHINE_COLLECTION).find({}, { projection: { 'tunnelPort': 1 } })
+        .toArray((errorFindMachines, machines) => {
+            if (errorFindMachines) {
+                reject(errorFindMachines);
+                return;
+            }
+
+            if (machines.length >= getMaxTunnelPorts()) {
+                reject({message: 'no tunnel port avaliable.'});
+                return;
+            }
+
+            //Indicate that is generating a tunnel port to avoid duplicated.
+            countGeneratingTunnelPort++;
+
+            let tunnelPort = generateTunnelPort();
+            const MAX_TRY_GENERATE = 100000;
+            let tryGenerate = 0;
+            
+            let validTunnelPort = false;
+            while(!validTunnelPort) {
+                // Check tunnel port in mongoDB and in nodeJS concurrent requests.
+                validTunnelPort = (machines.find(machine => parseInt(machine.tunnelPort) === tunnelPort) == null) && 
+                    (arrayTunnelPortsInserting.find(tunnelPortInserting => tunnelPortInserting === tunnelPort) == null);
+
+                //Generate another tunnel port if it is already used.
+                if(!validTunnelPort) {
+                    //limit to not cause loop.
+                    if (tryGenerate > MAX_TRY_GENERATE) {
+                        //Indicate that stopped generating tunnel port.
+                        countGeneratingTunnelPort--;
+
+                        reject({message: 'max try of generate hit.'});
+                        return;
+                    }
+
+                    //the last tunnel range is difficult to hit.
+                    tunnelPort = (tryGenerate < MAX_TRY_GENERATE) ? generateTunnelPort() : getLastTunnelPort();
+                }
+
+                tryGenerate++;
+            }
+
+            //Keep the tunnel port to avoid duplicated insert.
+            arrayTunnelPortsInserting.push(tunnelPort);
+
+            resolve(tunnelPort);
+        });
     });
 }
 
@@ -411,11 +518,23 @@ function getMachineConnectionParamsTotp(req, res) {
 
 function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, totpInfo) {
     log.info("Insert Machine Data")
+
     dbMongo.collection(REGISTERED_MACHINE_COLLECTION).insertOne(registeredMachine, function (error) {
-        if (error) {
-            res.status(500).send({ message: 'Error to insert machine.' });
-            throw error;
+        //Finished to insert tunnel port.
+        countGeneratingTunnelPort--;
+
+        //Cleaning the tunnel port cache.
+        const indexTunnelPortInserted = arrayTunnelPortsInserting.indexOf(parseInt(registeredMachine.tunnelPort));
+        if (indexTunnelPortInserted >= 0) {
+            arrayTunnelPortsInserting.splice(indexTunnelPortInserted, 1);
         }
+
+        if (error) {
+            console.error(error);
+            res.status(500).send({ message: 'Error to insert machine.' });
+            return;
+        }
+
         let urlTOTP = "";
         if(totpInfo){
             urlTOTP = totpInfo.urlTotp;

@@ -237,8 +237,16 @@ function connectExporter(res) {
 
 function generateMachineConnectionParams(req, res) {
     const mongoClient = new MongoClient(process.env.URL_MONGODB_SENHA);
-    const sshHost = process.env.SSH_HOST;
-    const sshPort = process.env.SSH_PORT;
+
+    const baseDomain = process.env.BASE_DOMAIN
+
+    const sshHost = process.env.SSH_HOST
+    const sshPort = process.env.SSH_PORT
+    const sshPortInternal = process.env.SSH_PORT_INTERNAL || process.env.SSH_PORT
+    const tunnelPortRange = process.env.TUNNEL_PORT_RANGE
+    // const lowerPort = tunnelPortRange.split(/-/)[0]
+    // const higherPort = tunnelPortRange.split(/-/)[1]
+
 
     const min = Math.ceil(1000);
     const max = Math.floor(9999);
@@ -263,11 +271,12 @@ function generateMachineConnectionParams(req, res) {
 
             log.debug("Account founded")
             log.trace("accound:", JSON.stringify(account));
-
+          
             let registeredMachine = { machineId };
             registeredMachine.account = account;
             registeredMachine.sshHost = sshHost;
             registeredMachine.sshPort = sshPort + "";
+            registeredMachine.sshPortInternal = sshPortInternal + ""
             registeredMachine.sshUsername = registeredMachine.machineId;
             registeredMachine.sshPassword = req.params.accountId;
 
@@ -295,6 +304,7 @@ function generateMachineConnectionParams(req, res) {
                 res.status(500).send({ message: 'Error to insert machine.' });
                 return;
             });
+
         });
 
     });
@@ -317,9 +327,15 @@ function getMachineConnectionParams(req, res) {
             }
 
             if (machine) {
+                if (conf.withTOTP) {
+                    machine['withTotp'] = true
+                }else{
+                    machine['withTotp'] = false
+                    machine['token'] = moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
+                }
                 delete machine._id
                 delete machine.account._id
-                delete machine.totpSecret
+                delete machine.totpSecret                      
                 res.send(machine);
             } else {
                 res.status(404)
@@ -476,16 +492,20 @@ function getMachineConnectionParamsTotp(req, res) {
                         if (validationResult) {
                             status = 200;
                             message = {
+                                sshHost: machine.sshHost,
+                                sshPort: machine.sshPort,
                                 machinePort: machine.tunnelPort, 
-                                token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                                token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                             }
                         }
                     }
                 }else{    
                     status = 200;
                     message = {
+                        sshHost: machine.sshHost,
+                        sshPort: machine.sshPort,
                         machinePort: machine.tunnelPort, 
-                        token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, "localhost:3389")
+                        token: moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                     }
                 }
                 
@@ -527,10 +547,11 @@ function insertMachineData(req, res, dbMongo, mongoClient, registeredMachine, to
                 machineId: registeredMachine.machineId,
                 sshHost: registeredMachine.sshHost,
                 sshPort: registeredMachine.sshPort,
+                sshPortInternal: registeredMachine.sshPortInternal,
+                tunnelPort: registeredMachine.tunnelPort,
                 totpUrl: urlTOTP,
-                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, "localhost:3389")
+                token: moduleJwt.generateToken(registeredMachine.account.accountId, registeredMachine.machineId, `localhost:${registeredMachine.tunnelPort}`, `localhost:${registeredMachine.tunnelPort}`)
             })
-            // res.json({ machineId: machineId, sshHost: sshHost, sshPort: sshPort, sshUsername: registeredMachine.sshUsername, sshPassword: registeredMachine.sshPassword, tunnelPort: registeredMachine.tunnelPort });
         } else {
             res.status(404).send({ message: 'No account found with ID: ' + req.params.accountId });
         }

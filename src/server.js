@@ -297,11 +297,11 @@ function getMachineConnectionParams(req, res) {
                     machine['withTotp'] = true
                 }else{
                     machine['withTotp'] = false
+                    machine['token'] = moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
                 }
                 delete machine._id
                 delete machine.account._id
-                delete machine.totpSecret      
-                machine['token'] = moduleJwt.generateToken(machine.account.accountId, machine.machineId, `localhost:${machine.tunnelPort}`, `localhost:${machine.tunnelPort}`)
+                delete machine.totpSecret                      
                 res.send(machine);
             } else {
                 res.status(404)

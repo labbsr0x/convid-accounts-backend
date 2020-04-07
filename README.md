@@ -24,13 +24,13 @@ or you can execute `./start-dev`
 4. Create a test account **without** TOTP:
 
 ```
-curl --header 'Content-Type: application/json' -X POST http://localhost:9999/account -d '{"accountId":"00000000222200","email":"contato@email.com"}'
+curl --header 'Content-Type: application/json' -X POST http://localhost:9999/account -d '{"accountId":"00000000222200","email":"no-totp@email.com"}'
 ```
 
 5. Create a test account **with** TOTP:
 
 ```
-curl --header 'Content-Type: application/json' -X POST http://localhost:9999/account -d '{"accountId":"00000000111100","email":"contato@email.com", "totp":true}'
+curl --header 'Content-Type: application/json' -X POST http://localhost:9999/account -d '{"accountId":"00000000111100","email":"totp@email.com", "totp":true}'
 ```
 
 6. Fetch the created accounts:

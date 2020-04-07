@@ -13,6 +13,7 @@ volumes:
 services:
   mongodb:
     image: mongo:4.0
+    restart: always
     ports:
       - "27017:27017"
     environment:
@@ -25,6 +26,7 @@ services:
     depends_on:
       - mongodb
     image: mongo-express:0.49
+    restart: always
     ports:
       - "8081:8081"
     environment:
@@ -41,6 +43,7 @@ services:
     build:
       context: .
     image: convid/node-accounts-backend
+    restart: always
     ports:
       - "9999:9999"
     environment:
@@ -48,7 +51,7 @@ services:
       - BASE_DOMAIN=localhost:9999
       - SSH_HOST=localhost
       - SSH_PORT=2222
-      - SSH_PORT_INTERNAL=22
+      - SSH_PORT_INTERNAL=2222
       - TUNNEL_PORT_RANGE=3000-60000
       ##JWT Confs
       - KEY_USING_SECRET=true
@@ -57,14 +60,13 @@ services:
       - ALGORITHM=RS512
       - PRIVATE_KEY=rs-prv-key
       - PUBLIC_KEY=rs-pub-key
-      ##TOTP
-      - WITH_TOTP=true
     secrets:
       - rs-prv-key
       - rs-pub-key
       
   prometheus:
     image: flaviostutz/prometheus:latest
+    restart: always
     ports:
       - "9090:9090"
     environment: 
@@ -74,6 +76,6 @@ services:
 
 secrets:
   rs-prv-key:
-    file: ./test-rsa.key
+    file: ./test_rsa.key
   rs-pub-key:
-    file: ./test-rsa.pub
+    file: ./test_rsa.pub

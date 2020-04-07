@@ -1,7 +1,5 @@
 FROM node:11-alpine
 
-ENV WITH_TOTP="false"
-
 # Create app directory
 WORKDIR /usr/src/app
 

@@ -40,3 +40,8 @@ curl -X GET http://localhost:9999/account
 ```
 
 Now your server is up, running and able to supporte accounts with or without TOTP enrollment
+
+
+## Using this backend to generate [SSH-JWT](https://hub.docker.com/r/flaviostutz/ssh-jwt) server enrollments
+
+To use this Backend as a JWT Token provider with RS512 pub/priv key with a [SSH-JWT](https://hub.docker.com/r/flaviostutz/ssh-jwt) you must copy the **public key** (`.pub` file) to the [SSH-JWT](https://hub.docker.com/r/flaviostutz/ssh-jwt) server and pass it as a secret, as pointed at https://github.com/flaviostutz/ssh-jwt#rs512-pubpriv-signing-key
